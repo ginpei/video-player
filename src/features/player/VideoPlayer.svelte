@@ -15,6 +15,13 @@
   let overlaySide = $state<'center' | 'left' | 'right'>('center')
   let overlayTimer: ReturnType<typeof setTimeout> | null = null
   let clickTimer: ReturnType<typeof setTimeout> | null = null
+  
+  interface Bookmark {
+    time: number
+    label: string
+  }
+  
+  let bookmarks = $state<Bookmark[]>([])
 
   let fileInput: HTMLInputElement | null = null
   let videoEl: HTMLVideoElement | null = null
@@ -28,6 +35,7 @@
     objectUrl = URL.createObjectURL(file)
     videoUrl = objectUrl
     videoName = file.name
+    bookmarks = []
   }
 
   function handleFiles(files: FileList | null) {
@@ -206,6 +214,21 @@
     const remainder = total % 60
     const padded = remainder.toString().padStart(2, '0')
     return `${minutes}:${padded}`
+  }
+
+  function addBookmark() {
+    if (!videoEl || !Number.isFinite(videoEl.currentTime)) return
+    const label = `Bookmark ${formatTime(videoEl.currentTime)}`
+    bookmarks = [...bookmarks, { time: videoEl.currentTime, label }]
+  }
+
+  function seekToBookmark(bookmark: Bookmark) {
+    if (!videoEl) return
+    videoEl.currentTime = bookmark.time
+  }
+
+  function deleteBookmark(index: number) {
+    bookmarks = bookmarks.filter((_, i) => i !== index)
   }
 
   onMount(() => {
@@ -394,6 +417,15 @@
     />
     <button
       type="button"
+      class="rounded-full bg-amber-400 px-5 py-2 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+      onclick={addBookmark}
+      disabled={!videoUrl}
+      title="Bookmark current position"
+    >
+      🔖 Bookmark
+    </button>
+    <button
+      type="button"
       class="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500"
       onclick={() => (showHelp = !showHelp)}
     >
@@ -405,6 +437,39 @@
         Now playing: {videoName}
       </span>
     {/if}
+    </div>
+
+    <div class="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
+      <h3 class="mb-3 text-sm font-semibold text-slate-200">
+        Bookmarks ({bookmarks.length})
+      </h3>
+      {#if bookmarks.length === 0}
+        <p class="text-sm text-slate-400">No bookmarks yet</p>
+      {:else}
+        <div class="space-y-2 max-h-48 overflow-y-auto">
+          {#each bookmarks as bookmark, index (index)}
+            <div class="flex items-center justify-between rounded-lg bg-slate-900/50 px-3 py-2">
+              <button
+                type="button"
+                class="flex-1 text-left text-sm text-slate-100 hover:text-amber-400 transition"
+                onclick={() => seekToBookmark(bookmark)}
+                title="Jump to bookmark"
+              >
+                <span class="font-mono">{formatTime(bookmark.time)}</span>
+                <span class="ml-2 text-slate-400">{bookmark.label}</span>
+              </button>
+              <button
+                type="button"
+                class="ml-2 text-xs text-slate-400 hover:text-red-400 transition"
+                onclick={() => deleteBookmark(index)}
+                title="Delete bookmark"
+              >
+                ✕
+              </button>
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
   </div>
 </div>
