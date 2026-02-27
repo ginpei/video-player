@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte'
+  import { onDestroy } from 'svelte'
 
   let videoUrl = $state('')
   let videoName = $state('')
@@ -197,6 +197,13 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
+    // Ignore keydown when typing in input fields
+    const target = event.target as HTMLElement | null
+    const tagName = target?.tagName?.toLowerCase()
+    if (tagName === 'input' || tagName === 'textarea' || target?.isContentEditable) {
+      return
+    }
+
     if (event.key === ' ') {
       event.preventDefault()
       togglePlay()
@@ -292,45 +299,22 @@
     bookmarks = bookmarks.filter((_, i) => i !== index)
   }
 
-  onMount(() => {
-    const handler = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null
-      const tagName = target?.tagName?.toLowerCase()
-      if (tagName === 'input' || tagName === 'textarea' || target?.isContentEditable) {
-        return
-      }
+  function handleWindowDragOver(event: DragEvent) {
+    event.preventDefault()
+    isDragging = true
+  }
 
-      handleKeydown(event)
-    }
-
-    const handleWindowDragOver = (event: DragEvent) => {
-      event.preventDefault()
-      isDragging = true
-    }
-
-    const handleWindowDragLeave = (event: DragEvent) => {
-      if (!event.relatedTarget) {
-        isDragging = false
-      }
-    }
-
-    const handleWindowDrop = (event: DragEvent) => {
-      event.preventDefault()
+  function handleWindowDragLeave(event: DragEvent) {
+    if (!event.relatedTarget) {
       isDragging = false
-      handleFiles(event.dataTransfer?.files ?? null)
     }
+  }
 
-    window.addEventListener('keydown', handler)
-    window.addEventListener('dragover', handleWindowDragOver)
-    window.addEventListener('dragleave', handleWindowDragLeave)
-    window.addEventListener('drop', handleWindowDrop)
-    return () => {
-      window.removeEventListener('keydown', handler)
-      window.removeEventListener('dragover', handleWindowDragOver)
-      window.removeEventListener('dragleave', handleWindowDragLeave)
-      window.removeEventListener('drop', handleWindowDrop)
-    }
-  })
+  function handleWindowDrop(event: DragEvent) {
+    event.preventDefault()
+    isDragging = false
+    handleFiles(event.dataTransfer?.files ?? null)
+  }
 
   onDestroy(() => {
     if (clickTimer) {
@@ -347,6 +331,13 @@
     }
   })
 </script>
+
+<svelte:window
+  onkeydown={handleKeydown}
+  ondragover={handleWindowDragOver}
+  ondragleave={handleWindowDragLeave}
+  ondrop={handleWindowDrop}
+/>
 
 <div class="w-full max-w-5xl mx-auto">
   <div
