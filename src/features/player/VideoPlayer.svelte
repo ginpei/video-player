@@ -416,9 +416,10 @@
 
   <div class="mt-4 flex flex-col gap-3">
     <div class="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3">
+      <!-- Play button - After seekbar on mobile, before on desktop -->
       <button
         type="button"
-        class="rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+        class="order-2 sm:order-1 rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
         onclick={togglePlay}
         disabled={!videoUrl}
         aria-label={isPlaying ? 'Pause' : 'Play'}
@@ -426,8 +427,9 @@
       >
         {isPlaying ? '⏸' : '▶'}
       </button>
-      <div class="flex min-w-[180px] flex-1 items-center gap-3 text-sm text-slate-200">
-        <span class="tabular-nums">{formatTime(currentTime)}</span>
+      
+      <!-- Seekbar - Full width on mobile, shared row on desktop -->
+      <div class="order-1 sm:order-2 flex w-full sm:min-w-45 sm:flex-1 items-center gap-3 text-sm text-slate-200">
         <input
           type="range"
           min="0"
@@ -438,28 +440,36 @@
           oninput={handleSeekInput}
           disabled={!videoUrl || !duration}
         />
-        <span class="tabular-nums">{formatTime(duration)}</span>
       </div>
-      <button
-        type="button"
-        class="rounded-full border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
-        onclick={toggleMute}
-        disabled={!videoUrl}
-        aria-label={isMuted || volume === 0 ? 'Unmute' : 'Mute'}
-        title={isMuted || volume === 0 ? 'Unmute' : 'Mute'}
-      >
-        {isMuted || volume === 0 ? '🔇' : '🔊'}
-      </button>
-      <input
-        type="range"
-        min="0"
-        max="1"
-        step="0.01"
-        value={isMuted ? 0 : volume}
-        class="h-1 w-28 cursor-pointer appearance-none rounded-full bg-slate-700"
-        oninput={handleVolumeInput}
-        disabled={!videoUrl}
-      />
+      
+      <!-- Time displays -->
+      <span class="order-3 tabular-nums text-sm text-slate-200">{formatTime(currentTime)}</span>
+      <span class="order-3 text-sm text-slate-400">/</span>
+      <span class="order-3 tabular-nums text-sm text-slate-200">{formatTime(duration)}</span>
+      
+      <!-- Volume controls - New line on mobile, same line on desktop -->
+      <div class="order-4 flex w-full sm:w-auto items-center gap-3">
+        <button
+          type="button"
+          class="rounded-full border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
+          onclick={toggleMute}
+          disabled={!videoUrl}
+          aria-label={isMuted || volume === 0 ? 'Unmute' : 'Mute'}
+          title={isMuted || volume === 0 ? 'Unmute' : 'Mute'}
+        >
+          {isMuted || volume === 0 ? '🔇' : '🔊'}
+        </button>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value={isMuted ? 0 : volume}
+          class="h-1 w-28 cursor-pointer appearance-none rounded-full bg-slate-700"
+          oninput={handleVolumeInput}
+          disabled={!videoUrl}
+        />
+      </div>
     </div>
 
     <div class="flex flex-wrap items-center gap-3">
