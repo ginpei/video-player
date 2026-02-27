@@ -276,6 +276,11 @@
     if (!videoEl || !Number.isFinite(videoEl.currentTime)) return
     const label = `Bookmark ${formatTime(videoEl.currentTime)}`
     bookmarks = [...bookmarks, { time: videoEl.currentTime, label }]
+    sortBookmarks()
+  }
+
+  function sortBookmarks() {
+    bookmarks = bookmarks.sort((a, b) => a.time - b.time)
   }
 
   function seekToBookmark(bookmark: Bookmark) {
@@ -430,16 +435,31 @@
       
       <!-- Seekbar - Full width on mobile, shared row on desktop -->
       <div class="order-1 sm:order-2 flex w-full sm:min-w-45 sm:flex-1 items-center gap-3 text-sm text-slate-200">
-        <input
-          type="range"
-          min="0"
-          max={duration || 0}
-          step="0.1"
-          value={currentTime}
-          class="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-700"
-          oninput={handleSeekInput}
-          disabled={!videoUrl || !duration}
-        />
+        <div class="relative w-full">
+          <!-- Bookmark markers overlay -->
+          {#if bookmarks.length > 0 && duration > 0}
+            <div class="absolute inset-0 pointer-events-none">
+              {#each bookmarks as bookmark}
+                <span
+                  class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-1 h-3 sm:w-1.5 sm:h-4 bg-amber-400 rounded-full shadow-sm shadow-amber-300/50"
+                  style="left: {(bookmark.time / duration) * 100}%"
+                  title="{formatTime(bookmark.time)} - {bookmark.label}"
+                ></span>
+              {/each}
+            </div>
+          {/if}
+          
+          <input
+            type="range"
+            min="0"
+            max={duration || 0}
+            step="0.1"
+            value={currentTime}
+            class="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-700 relative z-10"
+            oninput={handleSeekInput}
+            disabled={!videoUrl || !duration}
+          />
+        </div>
       </div>
       
       <!-- Time displays -->
