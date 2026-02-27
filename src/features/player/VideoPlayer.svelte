@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte'
 
-  let videoUrl = ''
-  let videoName = ''
-  let isDragging = false
-  let showHelp = false
+  let videoUrl = $state('')
+  let videoName = $state('')
+  let isDragging = $state(false)
+  let showHelp = $state(false)
 
   let fileInput: HTMLInputElement | null = null
   let videoEl: HTMLVideoElement | null = null
@@ -144,9 +144,11 @@
         isDragging ? 'ring-4 ring-amber-400/70 border-amber-300/60' : ''
       }`
     }
-    on:dragover={handleDragOver}
-    on:dragleave={handleDragLeave}
-    on:drop={handleDrop}
+    role="region"
+    aria-label="Video player"
+    ondragover={handleDragOver}
+    ondragleave={handleDragLeave}
+    ondrop={handleDrop}
   >
     <video
       bind:this={videoEl}
@@ -183,7 +185,7 @@
     <button
       type="button"
       class="rounded-full bg-amber-400 px-5 py-2 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5"
-      on:click={() => fileInput?.click()}
+      onclick={() => fileInput?.click()}
     >
       Select video
     </button>
@@ -192,12 +194,12 @@
       type="file"
       accept="video/*"
       class="hidden"
-      on:change={handleFileInput}
+      onchange={handleFileInput}
     />
     <button
       type="button"
       class="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500"
-      on:click={() => (showHelp = !showHelp)}
+      onclick={() => (showHelp = !showHelp)}
     >
       Shortcuts (?)
     </button>
@@ -213,18 +215,25 @@
 {#if showHelp}
   <div
     class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
-    on:click={() => (showHelp = false)}
+    role="button"
+    tabindex="0"
+    onclick={() => (showHelp = false)}
+    onkeydown={(e) => e.key === 'Escape' && (showHelp = false)}
   >
     <div
       class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-6 text-slate-100 shadow-2xl"
-      on:click|stopPropagation
+      role="dialog"
+      aria-labelledby="help-title"
+      tabindex="0"
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
     >
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold">Keyboard shortcuts</h2>
+        <h2 id="help-title" class="text-lg font-semibold">Keyboard shortcuts</h2>
         <button
           type="button"
           class="text-sm font-semibold text-slate-300 hover:text-slate-100"
-          on:click={() => (showHelp = false)}
+          onclick={() => (showHelp = false)}
         >
           Close
         </button>
