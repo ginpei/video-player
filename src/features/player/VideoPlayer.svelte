@@ -82,29 +82,43 @@
 
   function showPlaybackOverlay() {
     if (!videoEl) return
+    // Force re-render by toggling off then on
+    showOverlay = false
     overlaySymbol = videoEl.paused ? '⏸' : '▶'
     overlaySide = 'center'
-    showOverlay = true
+    
     if (overlayTimer) {
       clearTimeout(overlayTimer)
     }
-    overlayTimer = setTimeout(() => {
-      showOverlay = false
-      overlayTimer = null
-    }, 1000)
+    
+    // Use setTimeout to ensure DOM update happens before showing again
+    setTimeout(() => {
+      showOverlay = true
+      overlayTimer = setTimeout(() => {
+        showOverlay = false
+        overlayTimer = null
+      }, 1000)
+    }, 0)
   }
 
   function showSeekOverlay(symbol: string, side: 'left' | 'right') {
+    // Force re-render by toggling off then on
+    showOverlay = false
     overlaySymbol = symbol
     overlaySide = side
-    showOverlay = true
+    
     if (overlayTimer) {
       clearTimeout(overlayTimer)
     }
-    overlayTimer = setTimeout(() => {
-      showOverlay = false
-      overlayTimer = null
-    }, 1000)
+    
+    // Use setTimeout to ensure DOM update happens before showing again
+    setTimeout(() => {
+      showOverlay = true
+      overlayTimer = setTimeout(() => {
+        showOverlay = false
+        overlayTimer = null
+      }, 1000)
+    }, 0)
   }
 
   function handleVideoClick() {
