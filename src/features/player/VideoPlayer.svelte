@@ -346,7 +346,7 @@
 <div class="w-full max-w-5xl mx-auto">
   <div
     class={
-      `relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/80 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.9)] ${
+      `relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/80 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.9)] max-h-[calc(100vh-32px)] ${
         isDragging ? 'ring-4 ring-amber-400/70 border-amber-300/60' : ''
       }`
     }
