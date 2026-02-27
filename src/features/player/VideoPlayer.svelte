@@ -19,6 +19,8 @@
   let holdTimer: ReturnType<typeof setTimeout> | null = null
   let pointerDownTime = 0
   let originalPlaybackRate = $state(1)
+  let isSeeking = $state(false)
+  let wasPlayingBeforeSeeking = false
   
   interface Bookmark {
     time: number
@@ -273,6 +275,21 @@
     videoEl.currentTime = Number(input.value)
   }
 
+  function handleSeekPointerDown() {
+    if (!videoEl) return
+    isSeeking = true
+    wasPlayingBeforeSeeking = isPlaying
+    videoEl.pause()
+  }
+
+  function handleSeekPointerUp() {
+    if (!videoEl) return
+    isSeeking = false
+    if (wasPlayingBeforeSeeking) {
+      void videoEl.play()
+    }
+  }
+
   function handleVolumeInput(event: Event) {
     if (!videoEl) return
     const input = event.currentTarget as HTMLInputElement
@@ -462,6 +479,8 @@
             value={currentTime}
             class="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-700 relative z-10"
             oninput={handleSeekInput}
+            onpointerdown={handleSeekPointerDown}
+            onpointerup={handleSeekPointerUp}
             disabled={!videoUrl || !duration}
           />
         </div>
