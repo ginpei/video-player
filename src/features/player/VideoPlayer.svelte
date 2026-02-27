@@ -400,49 +400,21 @@
       />
     </div>
 
-    <div class="flex flex-wrap items-center gap-3">
-    <button
-      type="button"
-      class="rounded-full bg-amber-400 px-5 py-2 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5"
-      onclick={() => fileInput?.click()}
-    >
-      Select video
-    </button>
-    <input
-      bind:this={fileInput}
-      type="file"
-      accept="video/*"
-      class="hidden"
-      onchange={handleFileInput}
-    />
-    <button
-      type="button"
-      class="rounded-full bg-amber-400 px-5 py-2 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
-      onclick={addBookmark}
-      disabled={!videoUrl}
-      title="Bookmark current position"
-    >
-      🔖 Bookmark
-    </button>
-    <button
-      type="button"
-      class="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500"
-      onclick={() => (showHelp = !showHelp)}
-    >
-      Shortcuts (?)
-    </button>
-
-    {#if videoName}
-      <span class="text-sm text-slate-300">
-        Now playing: {videoName}
-      </span>
-    {/if}
-    </div>
-
     <div class="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
-      <h3 class="mb-3 text-sm font-semibold text-slate-200">
-        Bookmarks ({bookmarks.length})
-      </h3>
+      <div class="mb-3 flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-slate-200">
+          Bookmarks ({bookmarks.length})
+        </h3>
+        <button
+          type="button"
+          class="rounded-full bg-amber-400 px-4 py-1.5 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+          onclick={addBookmark}
+          disabled={!videoUrl}
+          title="Bookmark current position"
+        >
+          🔖 Bookmark
+        </button>
+      </div>
       {#if bookmarks.length === 0}
         <p class="text-sm text-slate-400">No bookmarks yet</p>
       {:else}
@@ -469,6 +441,36 @@
             </div>
           {/each}
         </div>
+      {/if}
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3">
+      <button
+        type="button"
+        class="rounded-full bg-amber-400 px-5 py-2 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5"
+        onclick={() => fileInput?.click()}
+      >
+        Select video
+      </button>
+      <input
+        bind:this={fileInput}
+        type="file"
+        accept="video/*"
+        class="hidden"
+        onchange={handleFileInput}
+      />
+      <button
+        type="button"
+        class="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500"
+        onclick={() => (showHelp = !showHelp)}
+      >
+        Shortcuts (?)
+      </button>
+
+      {#if videoName}
+        <span class="text-sm text-slate-300">
+          Now playing: {videoName}
+        </span>
       {/if}
     </div>
   </div>
