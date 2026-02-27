@@ -12,7 +12,9 @@
   let isMuted = $state(false)
   let showOverlay = $state(false)
   let overlaySymbol = $state('')
+  let overlaySide = $state<'center' | 'left' | 'right'>('center')
   let overlayTimer: ReturnType<typeof setTimeout> | null = null
+  let clickTimer: ReturnType<typeof setTimeout> | null = null
 
   let fileInput: HTMLInputElement | null = null
   let videoEl: HTMLVideoElement | null = null
@@ -69,6 +71,7 @@
   function showPlaybackOverlay() {
     if (!videoEl) return
     overlaySymbol = videoEl.paused ? '⏸' : '▶'
+    overlaySide = 'center'
     showOverlay = true
     if (overlayTimer) {
       clearTimeout(overlayTimer)
@@ -76,12 +79,44 @@
     overlayTimer = setTimeout(() => {
       showOverlay = false
       overlayTimer = null
-    }, 500)
+    }, 1000)
+  }
+
+  function showSeekOverlay(symbol: string, side: 'left' | 'right') {
+    overlaySymbol = symbol
+    overlaySide = side
+    showOverlay = true
+    if (overlayTimer) {
+      clearTimeout(overlayTimer)
+    }
+    overlayTimer = setTimeout(() => {
+      showOverlay = false
+      overlayTimer = null
+    }, 1000)
   }
 
   function handleVideoClick() {
-    togglePlay()
-    showPlaybackOverlay()
+    if (clickTimer) clearTimeout(clickTimer)
+    clickTimer = setTimeout(() => {
+      togglePlay()
+      showPlaybackOverlay()
+      clickTimer = null
+    }, 300)
+  }
+
+  function handleVideoDoubleClick(event: MouseEvent) {
+    if (clickTimer) {
+      clearTimeout(clickTimer)
+      clickTimer = null
+    }
+    if (!videoEl) return
+    const rect = videoEl.getBoundingClientRect()
+    const offsetX = event.clientX - rect.left
+    const isLeftSide = offsetX < rect.width / 3
+    const isRightSide = offsetX > (rect.width * 2) / 3
+    if (!isLeftSide && !isRightSide) return
+    seekBy(isLeftSide ? -5 : 5)
+    showSeekOverlay(isLeftSide ? '⏮' : '⏭', isLeftSide ? 'left' : 'right')
   }
 
   function toggleMute() {
@@ -214,6 +249,9 @@
   })
 
   onDestroy(() => {
+    if (clickTimer) {
+      clearTimeout(clickTimer)
+    }
     if (overlayTimer) {
       clearTimeout(overlayTimer)
     }
@@ -246,13 +284,24 @@
       onpause={handlePause}
       onvolumechange={handleVolumeChange}
       onclick={handleVideoClick}
+      ondblclick={handleVideoDoubleClick}
     >
       <track kind="captions" />
     </video>
 
     {#if showOverlay}
-      <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div class="overlay-fade rounded-full bg-slate-950/70 px-6 py-4 text-4xl font-semibold text-slate-100">
+      <div class="pointer-events-none absolute inset-0">
+        <div
+          class={
+            `overlay-fade absolute inset-y-0 flex items-center justify-center bg-slate-950/40 text-4xl font-semibold text-slate-100 ${
+              overlaySide === 'left'
+                ? 'left-0 w-1/3'
+                : overlaySide === 'right'
+                  ? 'right-0 w-1/3'
+                  : 'left-0 w-full'
+            }`
+          }
+        >
           {overlaySymbol}
         </div>
       </div>
@@ -402,7 +451,7 @@
 
 <style>
   .overlay-fade {
-    animation: overlay-fade 0.5s ease-out forwards;
+    animation: overlay-fade 1s ease-out forwards;
   }
 
   @keyframes overlay-fade {
