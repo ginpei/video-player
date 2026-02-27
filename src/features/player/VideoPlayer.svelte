@@ -15,6 +15,10 @@
   let overlaySide = $state<'center' | 'left' | 'right'>('center')
   let overlayTimer: ReturnType<typeof setTimeout> | null = null
   let clickTimer: ReturnType<typeof setTimeout> | null = null
+  let isHolding = $state(false)
+  let holdTimer: ReturnType<typeof setTimeout> | null = null
+  let pointerDownTime = 0
+  let originalPlaybackRate = $state(1)
   
   interface Bookmark {
     time: number
@@ -104,15 +108,11 @@
   }
 
   function handleVideoClick() {
-    if (clickTimer) clearTimeout(clickTimer)
-    clickTimer = setTimeout(() => {
-      togglePlay()
-      showPlaybackOverlay()
-      clickTimer = null
-    }, 300)
+    // Click handling moved to pointerup for better reliability
   }
 
   function handleVideoDoubleClick(event: MouseEvent) {
+    if (isHolding) return
     if (clickTimer) {
       clearTimeout(clickTimer)
       clickTimer = null
@@ -125,6 +125,62 @@
     if (!isLeftSide && !isRightSide) return
     seekBy(isLeftSide ? -5 : 5)
     showSeekOverlay(isLeftSide ? '⏮' : '⏭', isLeftSide ? 'left' : 'right')
+  }
+
+  function handleVideoPointerDown(event: PointerEvent) {
+    if (event.button !== 0 || !videoEl) return
+    pointerDownTime = Date.now()
+    holdTimer = setTimeout(() => {
+      if (!videoEl) return
+      isHolding = true
+      originalPlaybackRate = videoEl.playbackRate
+      videoEl.playbackRate = 2
+      holdTimer = null
+    }, 500)
+  }
+
+  function handleVideoPointerUp() {
+    const pressDuration = Date.now() - pointerDownTime
+    
+    if (holdTimer) {
+      clearTimeout(holdTimer)
+      holdTimer = null
+    }
+    
+    if (isHolding) {
+      // Was holding for 2x speed, just restore speed
+      isHolding = false
+      if (videoEl) {
+        videoEl.playbackRate = originalPlaybackRate
+      }
+      return
+    }
+    
+    // Quick press (< 500ms), treat as potential click
+    if (pressDuration < 500) {
+      if (clickTimer) {
+        // Second click within 300ms - it's a double click, cancel single click
+        clearTimeout(clickTimer)
+        clickTimer = null
+      } else {
+        // First click, wait to see if there's a double click
+        clickTimer = setTimeout(() => {
+          togglePlay()
+          showPlaybackOverlay()
+          clickTimer = null
+        }, 300)
+      }
+    }
+  }
+
+  function handleVideoPointerLeave() {
+    if (holdTimer) {
+      clearTimeout(holdTimer)
+      holdTimer = null
+    }
+    if (!isHolding || !videoEl) return
+    isHolding = false
+    videoEl.playbackRate = originalPlaybackRate
   }
 
   function toggleMute() {
@@ -278,6 +334,9 @@
     if (overlayTimer) {
       clearTimeout(overlayTimer)
     }
+    if (holdTimer) {
+      clearTimeout(holdTimer)
+    }
     if (objectUrl) {
       URL.revokeObjectURL(objectUrl)
     }
@@ -308,6 +367,9 @@
       onvolumechange={handleVolumeChange}
       onclick={handleVideoClick}
       ondblclick={handleVideoDoubleClick}
+      onpointerdown={handleVideoPointerDown}
+      onpointerup={handleVideoPointerUp}
+      onpointerleave={handleVideoPointerLeave}
     >
       <track kind="captions" />
     </video>
