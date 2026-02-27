@@ -5,6 +5,14 @@
   let videoName = $state('')
   let isDragging = $state(false)
   let showHelp = $state(false)
+  let isPlaying = $state(false)
+  let currentTime = $state(0)
+  let duration = $state(0)
+  let volume = $state(1)
+  let isMuted = $state(false)
+  let showOverlay = $state(false)
+  let overlaySymbol = $state('')
+  let overlayTimer: ReturnType<typeof setTimeout> | null = null
 
   let fileInput: HTMLInputElement | null = null
   let videoEl: HTMLVideoElement | null = null
@@ -58,6 +66,30 @@
     }
   }
 
+  function showPlaybackOverlay() {
+    if (!videoEl) return
+    overlaySymbol = videoEl.paused ? '⏸' : '▶'
+    showOverlay = true
+    if (overlayTimer) {
+      clearTimeout(overlayTimer)
+    }
+    overlayTimer = setTimeout(() => {
+      showOverlay = false
+      overlayTimer = null
+    }, 500)
+  }
+
+  function handleVideoClick() {
+    togglePlay()
+    showPlaybackOverlay()
+  }
+
+  function toggleMute() {
+    if (!videoEl) return
+    videoEl.muted = !videoEl.muted
+  }
+
+
   function seekBy(seconds: number) {
     if (!videoEl) return
     const duration = Number.isFinite(videoEl.duration) ? videoEl.duration : Infinity
@@ -88,6 +120,57 @@
       event.preventDefault()
       showHelp = !showHelp
     }
+  }
+
+  function handleTimeUpdate(event: Event) {
+    const el = event.currentTarget as HTMLVideoElement
+    currentTime = el.currentTime
+  }
+
+  function handleLoadedMetadata(event: Event) {
+    const el = event.currentTarget as HTMLVideoElement
+    duration = Number.isFinite(el.duration) ? el.duration : 0
+    currentTime = el.currentTime
+  }
+
+  function handlePlay() {
+    isPlaying = true
+  }
+
+  function handlePause() {
+    isPlaying = false
+  }
+
+  function handleVolumeChange(event: Event) {
+    const el = event.currentTarget as HTMLVideoElement
+    volume = el.volume
+    isMuted = el.muted
+  }
+
+  function handleSeekInput(event: Event) {
+    if (!videoEl) return
+    const input = event.currentTarget as HTMLInputElement
+    videoEl.currentTime = Number(input.value)
+  }
+
+  function handleVolumeInput(event: Event) {
+    if (!videoEl) return
+    const input = event.currentTarget as HTMLInputElement
+    videoEl.volume = Number(input.value)
+    if (videoEl.volume === 0) {
+      videoEl.muted = true
+    } else if (videoEl.muted) {
+      videoEl.muted = false
+    }
+  }
+
+  function formatTime(seconds: number) {
+    if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
+    const total = Math.floor(seconds)
+    const minutes = Math.floor(total / 60)
+    const remainder = total % 60
+    const padded = remainder.toString().padStart(2, '0')
+    return `${minutes}:${padded}`
   }
 
   onMount(() => {
@@ -131,6 +214,9 @@
   })
 
   onDestroy(() => {
+    if (overlayTimer) {
+      clearTimeout(overlayTimer)
+    }
     if (objectUrl) {
       URL.revokeObjectURL(objectUrl)
     }
@@ -153,11 +239,24 @@
     <video
       bind:this={videoEl}
       class="w-full aspect-video bg-black"
-      controls
       src={videoUrl}
+      onloadedmetadata={handleLoadedMetadata}
+      ontimeupdate={handleTimeUpdate}
+      onplay={handlePlay}
+      onpause={handlePause}
+      onvolumechange={handleVolumeChange}
+      onclick={handleVideoClick}
     >
       <track kind="captions" />
     </video>
+
+    {#if showOverlay}
+      <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div class="overlay-fade rounded-full bg-slate-950/70 px-6 py-4 text-4xl font-semibold text-slate-100">
+          {overlaySymbol}
+        </div>
+      </div>
+    {/if}
 
     {#if !videoUrl}
       <div class="absolute inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur">
@@ -181,7 +280,55 @@
     {/if}
   </div>
 
-  <div class="mt-4 flex flex-wrap items-center gap-3">
+  <div class="mt-4 flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3">
+      <button
+        type="button"
+        class="rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+        onclick={togglePlay}
+        disabled={!videoUrl}
+        aria-label={isPlaying ? 'Pause' : 'Play'}
+        title={isPlaying ? 'Pause' : 'Play'}
+      >
+        {isPlaying ? '⏸' : '▶'}
+      </button>
+      <div class="flex min-w-[180px] flex-1 items-center gap-3 text-sm text-slate-200">
+        <span class="tabular-nums">{formatTime(currentTime)}</span>
+        <input
+          type="range"
+          min="0"
+          max={duration || 0}
+          step="0.1"
+          value={currentTime}
+          class="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-700"
+          oninput={handleSeekInput}
+          disabled={!videoUrl || !duration}
+        />
+        <span class="tabular-nums">{formatTime(duration)}</span>
+      </div>
+      <button
+        type="button"
+        class="rounded-full border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
+        onclick={toggleMute}
+        disabled={!videoUrl}
+        aria-label={isMuted || volume === 0 ? 'Unmute' : 'Mute'}
+        title={isMuted || volume === 0 ? 'Unmute' : 'Mute'}
+      >
+        {isMuted || volume === 0 ? '🔇' : '🔊'}
+      </button>
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="0.01"
+        value={isMuted ? 0 : volume}
+        class="h-1 w-28 cursor-pointer appearance-none rounded-full bg-slate-700"
+        oninput={handleVolumeInput}
+        disabled={!videoUrl}
+      />
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3">
     <button
       type="button"
       class="rounded-full bg-amber-400 px-5 py-2 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5"
@@ -209,6 +356,7 @@
         Now playing: {videoName}
       </span>
     {/if}
+    </div>
   </div>
 </div>
 
@@ -251,3 +399,18 @@
     </div>
   </div>
 {/if}
+
+<style>
+  .overlay-fade {
+    animation: overlay-fade 0.5s ease-out forwards;
+  }
+
+  @keyframes overlay-fade {
+    0% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+</style>
