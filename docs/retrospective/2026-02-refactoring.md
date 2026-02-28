@@ -256,3 +256,126 @@ _Scope: Code refactoring & architecture improvements only (no new features)_
 - Phase 2: Grouped overlay state into `overlay = $state<OverlayState>(...)`, added `.card` to `style.css`, documented `isMuted` decision
 - Phase 4: Extracted `HelpDialog.svelte` and `BookmarkPanel.svelte` as standalone components; added `OverlayState` interface; added `validateFile` in `src/shared/lib/validation.ts`; moved `.overlay-fade` to `style.css`
 - Phase 4 deferred/declined items documented with rationale: State Management, Event Handlers, Keyboard Utilities, Timer Utilities, Performance Monitoring, full `video`/`ui` state grouping
+
+---
+
+## 🔄 Retrospective: What We Learned
+
+**Completed:** February 28, 2026  
+**Sessions:** 2 refactoring sessions (Feb 27-28)
+
+### ✅ What Went Well
+
+**Bug Fixes Delivered Impact**
+- Mobile touch events now work correctly with `PointerEvent` API
+- RAF-based seek debouncing eliminated frame skipping issues
+- Svelte `tick()` replaced fragile `setTimeout` hacks — proper lifecycle management
+
+**Code Quality Wins**
+- `PLAYBACK_CONFIG` centralized all magic numbers — one place to tune behavior
+- Overlay state grouping (`OverlayState`) created clear mental model
+- `clearAllTimers()` consolidated cleanup logic — DRY principle applied
+- Component extraction (`BookmarkPanel`, `HelpDialog`) reduced main component to ~350 lines
+
+**Accessibility Achieved WCAG Compliance**
+- `aria-live` regions for screen reader announcements
+- Keyboard navigation (Arrow keys + Delete) in bookmark list
+- Focus trap in help dialog with `aria-modal`
+- Dynamic seekbar labels during scrubbing
+
+**Architecture Decisions Were Pragmatic**
+- Chose not to over-engineer single-component patterns
+- Documented why certain refactorings were deferred/declined
+- Balanced ideal architecture with practical scope
+
+### ⚠️ What Didn't Go Well (Constraints Faced)
+
+**Svelte 5 Lifecycle Coupling**
+- State management extraction blocked by `bind:this` and `onDestroy` patterns
+- `$derived` can't observe DOM properties → must use event sync pattern
+- Component-local state can't easily move to separate `.ts` files without major redesign
+
+**Single-Component Limitation**
+- Many "shared utility" patterns don't pay off with one consumer
+- Extracting event handlers would just move tightly-coupled code elsewhere
+- Timer utilities, keyboard maps premature without reuse requirement
+
+**Tight DOM/State Coupling**
+- PlaybackControls, SeekBar can't extract without also extracting state management
+- `videoEl` binding is central to all playback logic
+- Seek state shared between multiple UI elements
+
+### 🧠 Key Decisions & Rationale
+
+**Decision: Keep `isMuted` as `$state` with Event Sync**
+- **Why:** Svelte 5's `$derived` cannot reactively observe `videoEl.muted`
+- **Pattern:** `$state` var + `volumechange` event listener is canonical Svelte approach
+- **Rejected:** Derived state from DOM element (not technically possible)
+
+**Decision: Partial Component Extraction**
+- **Extracted:** `BookmarkPanel`, `HelpDialog` (self-contained, clear boundaries)
+- **Deferred:** `PlaybackControls`, `SeekBar`, `VideoContainer` (tightly coupled to `videoEl` binding)
+- **Why:** Extracting UI without extracting state management = same coupling, different file
+
+**Decision: No State Management File**
+- **Rejected:** `src/features/player/state.ts` with `createPlayerState()`
+- **Why:** State is tightly bound to component lifecycle (`onDestroy`, `bind:this`)
+- **Cost:** Would require redesigning lifecycle cleanup and DOM bindings
+- **Benefit:** None for single-component app with no reuse requirement
+
+**Decision: No Shared Timer/Keyboard Utilities**
+- **Rejected:** `src/shared/lib/timers.ts`, `src/shared/lib/keyboard.ts`
+- **Why:** Only one keyboard handler, one set of timers in entire app
+- **Alternative:** `clearAllTimers()` already consolidates cleanup
+- **Principle:** Don't create abstractions until second use case appears
+
+### 📐 Principles That Emerged
+
+1. **Import Shared Utilities First** — Search before copy-pasting; single source of truth
+2. **Use `PointerEvent` for Cross-Device** — Don't assume desktop-only patterns
+3. **Use RAF for Continuous Updates** — Prevents janky seek/scrub behavior
+4. **Use Svelte Lifecycle Properly** — `tick()` for re-renders, `onDestroy` for cleanup
+5. **Extract at ~200-300 Lines** — Don't wait until 500+ line monolith
+6. **Group Related State** — Creates clear mental model, easier refactoring
+7. **Add ARIA Early** — Accessibility as implementation requirement, not afterthought
+8. **Extract Constants to Config** — Makes values searchable, testable, tunable
+9. **Don't Over-Engineer Single-Component Patterns** — Wait for second use case
+10. **Document "No" Decisions** — Explain why certain refactorings were rejected
+
+### 🎯 Future Refactoring Triggers
+
+**When to Extract State Management:**
+- Second video player component appears (e.g., playlist view)
+- Need to test playback logic in isolation
+- Want to share player state across multiple UI subtrees
+
+**When to Create Timer/Keyboard Utilities:**
+- Second component needs keyboard shortcuts + timer cleanup
+- Pattern appears in 3+ places across codebase
+
+**When to Extract Remaining UI Components:**
+- State management extraction happens first
+- Need to test PlaybackControls/SeekBar in isolation
+- `videoEl` binding can be passed as prop without tight coupling
+
+### 📊 Metrics
+
+- **Lines Reduced:** ~500 → ~350 in main component (30% reduction)
+- **Components Extracted:** 2 (`BookmarkPanel.svelte`, `HelpDialog.svelte`)
+- **Interfaces Added:** 2 (`Bookmark`, `OverlayState`)
+- **Config Files Created:** 1 (`config.ts` with `PLAYBACK_CONFIG`)
+- **Utilities Added:** 2 (`clearAllTimers()`, `validateFile()`)
+- **Accessibility Fixes:** 4 (aria-live, aria-modal, keyboard nav, dynamic labels)
+- **Bug Fixes:** 5 (formatTime, VideoMetadata, PointerEvent, RAF seek, tick())
+
+### 💡 Biggest Lesson
+
+**Pragmatic refactoring > idealistic architecture.**
+
+Not every pattern from large-scale apps applies to small projects. Svelte's component-local state + lifecycle hooks work well for single-component apps — premature extraction adds complexity without benefit. Wait for the second use case before abstracting.
+
+**Balance:** Keep code clean and maintainable, but don't over-engineer solutions for problems you don't have yet.
+
+---
+
+**Next Steps:** Monitor for performance issues, add features (playlist, subtitles), revisit state extraction if second player component needed.
