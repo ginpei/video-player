@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte'
+  import { onDestroy, tick } from 'svelte'
+  import { formatTime } from '../../shared/lib'
+  import type { Bookmark } from '../../shared/types'
+  import { PLAYBACK_CONFIG } from './config'
 
   let videoUrl = $state('')
   let videoName = $state('')
@@ -18,20 +21,36 @@
   let isHolding = $state(false)
   let holdTimer: ReturnType<typeof setTimeout> | null = null
   let pointerDownTime = 0
+  let lastPointerX = 0
   let originalPlaybackRate = $state(1)
-  let isSeeking = $state(false)
+  let isSeeking = false
   let wasPlayingBeforeSeeking = false
-  
-  interface Bookmark {
-    time: number
-    label: string
-  }
-  
+  let seekRafId: number | null = null
+
   let bookmarks = $state<Bookmark[]>([])
 
   let fileInput: HTMLInputElement | null = null
   let videoEl: HTMLVideoElement | null = null
   let objectUrl: string | null = null
+
+  function clearAllTimers() {
+    if (clickTimer) {
+      clearTimeout(clickTimer)
+      clickTimer = null
+    }
+    if (overlayTimer) {
+      clearTimeout(overlayTimer)
+      overlayTimer = null
+    }
+    if (holdTimer) {
+      clearTimeout(holdTimer)
+      holdTimer = null
+    }
+    if (seekRafId !== null) {
+      cancelAnimationFrame(seekRafId)
+      seekRafId = null
+    }
+  }
 
   function loadFile(file: File) {
     if (objectUrl) {
@@ -82,87 +101,62 @@
     }
   }
 
-  function showPlaybackOverlay() {
+  async function showPlaybackOverlay() {
     if (!videoEl) return
-    // Force re-render by toggling off then on
     showOverlay = false
     overlaySymbol = videoEl.paused ? '⏸' : '▶'
     overlaySide = 'center'
-    
+
     if (overlayTimer) {
       clearTimeout(overlayTimer)
     }
-    
-    // Use setTimeout to ensure DOM update happens before showing again
-    setTimeout(() => {
-      showOverlay = true
-      overlayTimer = setTimeout(() => {
-        showOverlay = false
-        overlayTimer = null
-      }, 1000)
-    }, 0)
+
+    await tick()
+    showOverlay = true
+    overlayTimer = setTimeout(() => {
+      showOverlay = false
+      overlayTimer = null
+    }, PLAYBACK_CONFIG.OVERLAY_FADE_DURATION)
   }
 
-  function showSeekOverlay(symbol: string, side: 'left' | 'right') {
-    // Force re-render by toggling off then on
+  async function showSeekOverlay(symbol: string, side: 'left' | 'right') {
     showOverlay = false
     overlaySymbol = symbol
     overlaySide = side
-    
+
     if (overlayTimer) {
       clearTimeout(overlayTimer)
     }
-    
-    // Use setTimeout to ensure DOM update happens before showing again
-    setTimeout(() => {
-      showOverlay = true
-      overlayTimer = setTimeout(() => {
-        showOverlay = false
-        overlayTimer = null
-      }, 1000)
-    }, 0)
-  }
 
-  function handleVideoClick() {
-    // Click handling moved to pointerup for better reliability
-  }
-
-  function handleVideoDoubleClick(event: MouseEvent) {
-    if (isHolding) return
-    if (clickTimer) {
-      clearTimeout(clickTimer)
-      clickTimer = null
-    }
-    if (!videoEl) return
-    const rect = videoEl.getBoundingClientRect()
-    const offsetX = event.clientX - rect.left
-    const isLeftSide = offsetX < rect.width / 3
-    const isRightSide = offsetX > (rect.width * 2) / 3
-    if (!isLeftSide && !isRightSide) return
-    seekBy(isLeftSide ? -5 : 5)
-    showSeekOverlay(isLeftSide ? '⏮' : '⏭', isLeftSide ? 'left' : 'right')
+    await tick()
+    showOverlay = true
+    overlayTimer = setTimeout(() => {
+      showOverlay = false
+      overlayTimer = null
+    }, PLAYBACK_CONFIG.OVERLAY_FADE_DURATION)
   }
 
   function handleVideoPointerDown(event: PointerEvent) {
     if (event.button !== 0 || !videoEl) return
+    lastPointerX = event.clientX
     pointerDownTime = Date.now()
     holdTimer = setTimeout(() => {
       if (!videoEl) return
       isHolding = true
       originalPlaybackRate = videoEl.playbackRate
-      videoEl.playbackRate = 2
+      videoEl.playbackRate = PLAYBACK_CONFIG.FAST_PLAYBACK_RATE
       holdTimer = null
-    }, 500)
+    }, PLAYBACK_CONFIG.HOLD_TO_2X_THRESHOLD)
   }
 
   function handleVideoPointerUp() {
     const pressDuration = Date.now() - pointerDownTime
-    
+
     if (holdTimer) {
       clearTimeout(holdTimer)
       holdTimer = null
     }
-    
+
     if (isHolding) {
       // Was holding for 2x speed, just restore speed
       isHolding = false
@@ -171,20 +165,31 @@
       }
       return
     }
-    
-    // Quick press (< 500ms), treat as potential click
-    if (pressDuration < 500) {
+
+    // Quick press, treat as potential click
+    if (pressDuration < PLAYBACK_CONFIG.HOLD_TO_2X_THRESHOLD) {
       if (clickTimer) {
-        // Second click within 300ms - it's a double click, cancel single click
+        // Second click within window - it's a double click, cancel single click
         clearTimeout(clickTimer)
         clickTimer = null
+        // Handle double-tap seek based on pointer position
+        if (videoEl) {
+          const rect = videoEl.getBoundingClientRect()
+          const offsetX = lastPointerX - rect.left
+          const isLeftSide = offsetX < rect.width * PLAYBACK_CONFIG.LEFT_ZONE_RATIO
+          const isRightSide = offsetX > rect.width * PLAYBACK_CONFIG.RIGHT_ZONE_RATIO
+          if (isLeftSide || isRightSide) {
+            seekBy(isLeftSide ? -PLAYBACK_CONFIG.SEEK_AMOUNT : PLAYBACK_CONFIG.SEEK_AMOUNT)
+            void showSeekOverlay(isLeftSide ? '⏮' : '⏭', isLeftSide ? 'left' : 'right')
+          }
+        }
       } else {
         // First click, wait to see if there's a double click
         clickTimer = setTimeout(() => {
           togglePlay()
-          showPlaybackOverlay()
+          void showPlaybackOverlay()
           clickTimer = null
-        }, 300)
+        }, PLAYBACK_CONFIG.CLICK_DETECTION_WINDOW)
       }
     }
   }
@@ -207,8 +212,8 @@
 
   function seekBy(seconds: number) {
     if (!videoEl) return
-    const duration = Number.isFinite(videoEl.duration) ? videoEl.duration : Infinity
-    const nextTime = Math.min(Math.max(0, videoEl.currentTime + seconds), duration)
+    const dur = Number.isFinite(videoEl.duration) ? videoEl.duration : Infinity
+    const nextTime = Math.min(Math.max(0, videoEl.currentTime + seconds), dur)
     videoEl.currentTime = nextTime
   }
 
@@ -228,13 +233,13 @@
 
     if (event.key === 'ArrowLeft') {
       event.preventDefault()
-      seekBy(-5)
+      seekBy(-PLAYBACK_CONFIG.SEEK_AMOUNT)
       return
     }
 
     if (event.key === 'ArrowRight') {
       event.preventDefault()
-      seekBy(5)
+      seekBy(PLAYBACK_CONFIG.SEEK_AMOUNT)
       return
     }
 
@@ -272,7 +277,15 @@
   function handleSeekInput(event: Event) {
     if (!videoEl) return
     const input = event.currentTarget as HTMLInputElement
-    videoEl.currentTime = Number(input.value)
+    const time = Number(input.value)
+
+    if (seekRafId !== null) {
+      cancelAnimationFrame(seekRafId)
+    }
+    seekRafId = requestAnimationFrame(() => {
+      if (videoEl) videoEl.currentTime = time
+      seekRafId = null
+    })
   }
 
   function handleSeekPointerDown() {
@@ -301,15 +314,6 @@
     }
   }
 
-  function formatTime(seconds: number) {
-    if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
-    const total = Math.floor(seconds)
-    const minutes = Math.floor(total / 60)
-    const remainder = total % 60
-    const padded = remainder.toString().padStart(2, '0')
-    return `${minutes}:${padded}`
-  }
-
   function addBookmark() {
     if (!videoEl || !Number.isFinite(videoEl.currentTime)) return
     const label = `Bookmark ${formatTime(videoEl.currentTime)}`
@@ -330,6 +334,23 @@
     bookmarks = bookmarks.filter((_, i) => i !== index)
   }
 
+  function handleBookmarkKeydown(event: KeyboardEvent, index: number) {
+    if (event.key === 'Delete') {
+      event.preventDefault()
+      deleteBookmark(index)
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      const parent = (event.currentTarget as HTMLElement).closest('[role="list"]')
+      const items = parent?.querySelectorAll<HTMLElement>('[role="listitem"] button:first-child')
+      items?.[index + 1]?.focus()
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      const parent = (event.currentTarget as HTMLElement).closest('[role="list"]')
+      const items = parent?.querySelectorAll<HTMLElement>('[role="listitem"] button:first-child')
+      items?.[index - 1]?.focus()
+    }
+  }
+
   function handleWindowDragOver(event: DragEvent) {
     event.preventDefault()
     isDragging = true
@@ -348,15 +369,7 @@
   }
 
   onDestroy(() => {
-    if (clickTimer) {
-      clearTimeout(clickTimer)
-    }
-    if (overlayTimer) {
-      clearTimeout(overlayTimer)
-    }
-    if (holdTimer) {
-      clearTimeout(holdTimer)
-    }
+    clearAllTimers()
     if (objectUrl) {
       URL.revokeObjectURL(objectUrl)
     }
@@ -392,8 +405,6 @@
       onplay={handlePlay}
       onpause={handlePause}
       onvolumechange={handleVolumeChange}
-      onclick={handleVideoClick}
-      ondblclick={handleVideoDoubleClick}
       onpointerdown={handleVideoPointerDown}
       onpointerup={handleVideoPointerUp}
       onpointerleave={handleVideoPointerLeave}
@@ -402,7 +413,7 @@
     </video>
 
     {#if showOverlay}
-      <div class="pointer-events-none absolute inset-0">
+      <div class="pointer-events-none absolute inset-0" aria-live="polite" aria-atomic="true">
         <div
           class={
             `overlay-fade absolute inset-y-0 flex items-center justify-center bg-slate-950/40 text-4xl font-semibold text-slate-100 ${
@@ -477,6 +488,7 @@
             max={duration || 0}
             step="0.1"
             value={currentTime}
+            aria-label={`Seek – ${formatTime(currentTime)} of ${formatTime(duration)}`}
             class="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-700 relative z-10"
             oninput={handleSeekInput}
             onpointerdown={handleSeekPointerDown}
@@ -534,13 +546,14 @@
       {#if bookmarks.length === 0}
         <p class="text-sm text-slate-400">No bookmarks yet</p>
       {:else}
-        <div class="space-y-2 max-h-48 overflow-y-auto">
+        <div class="space-y-2 max-h-48 overflow-y-auto" role="list">
           {#each bookmarks as bookmark, index (index)}
-            <div class="flex items-center justify-between rounded-lg bg-slate-900/50 px-3 py-2">
+            <div class="flex items-center justify-between rounded-lg bg-slate-900/50 px-3 py-2" role="listitem">
               <button
                 type="button"
                 class="flex-1 text-left text-sm text-slate-100 hover:text-amber-400 transition"
                 onclick={() => seekToBookmark(bookmark)}
+                onkeydown={(e) => handleBookmarkKeydown(e, index)}
                 title="Jump to bookmark"
               >
                 <span class="font-mono">{formatTime(bookmark.time)}</span>
@@ -604,6 +617,7 @@
       class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-6 text-slate-100 shadow-2xl"
       role="dialog"
       aria-labelledby="help-title"
+      aria-modal="true"
       tabindex="0"
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}

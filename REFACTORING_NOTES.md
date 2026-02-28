@@ -9,31 +9,31 @@
 
 ### Bug Fixes Checklist
 
-- [ ] **Fix Duplicate `formatTime` Implementation** (HIGH)
+- [x] **Fix Duplicate `formatTime` Implementation** (HIGH)
   - **Location:** `src/shared/lib/index.ts` (with hours: `H:MM:SS`) vs `src/features/player/VideoPlayer.svelte` lines 427-435 (no hours: `M:SS`)
   - **Problem:** Component ignores shared utility, creates inconsistency
   - **Impact:** Maintenance debt; if shared version updates, local copy won't follow
   - **Fix:** Import shared utility in component, delete inline version
 
-- [ ] **Delete Unused `VideoMetadata` Type** (HIGH)
+- [x] **Delete Unused `VideoMetadata` Type** (HIGH)
   - **Location:** `src/shared/types/index.ts`
   - **Problem:** Never imported or used anywhere
   - **Impact:** Dead code signals incomplete architecture planning
   - **Fix:** Remove from types/index.ts
 
-- [ ] **Fix Mobile Touch Interaction** (MID)
+- [x] **Fix Mobile Touch Interaction** (MID)
   - **Location:** `src/features/player/VideoPlayer.svelte` line 169
   - **Problem:** `handleVideoDoubleClick(event: MouseEvent)` doesn't work on touch devices (no dblclick event)
   - **Impact:** Click detection broken on mobile/tablets
   - **Fix:** Change signature to `(event: PointerEvent)` and update touch-specific logic
 
-- [ ] **Add Seek Input Debouncing** (MID)
+- [x] **Add Seek Input Debouncing** (MID)
   - **Location:** `handleSeekInput()` and `handleSeekPointerDown/Up()` around lines 365-378
   - **Problem:** `isSeeking` flag doesn't prevent rapid seek requests; can cause frame skips
   - **Impact:** Audio/video sync issues on slow machines
   - **Fix:** Add input validation/debouncing or queue seek requests
 
-- [ ] **Replace Overlay Re-render Hack** (LOW)
+- [x] **Replace Overlay Re-render Hack** (LOW)
   - **Location:** `showPlaybackOverlay()` lines 108-115 and `showSeekOverlay()` lines 120-127
   - **Problem:** Uses `setTimeout(..., 0)` to force reflow; fragile pattern
   - **Impact:** Unnecessary DOM churn; depends on timing assumptions
@@ -45,7 +45,7 @@
 
 ### Code Quality Refactoring Checklist
 
-- [ ] **Extract Magic Numbers to Constants**
+- [x] **Extract Magic Numbers to Constants**
   - **Priority:** MID | **Impact:** Maintainability, testability
   - **Hardcoded Values:**
     - `500` - Hold-to-2x threshold (line 175)
@@ -65,12 +65,12 @@
     - Timers: `overlayTimer`, `clickTimer`, `holdTimer`
   - **Action:** Consolidate into state objects: `overlay`, `video`, `ui`, `timers`
 
-- [ ] **Consolidate Timer Cleanup Function**
+- [x] **Consolidate Timer Cleanup Function**
   - **Priority:** MID | **Impact:** DRY principle, bug prevention
   - **Current:** Repeated cleanup in `onDestroy()` lines 292-303
   - **Action:** Create `clearAllTimers()` helper function, call in `onDestroy()`
 
-- [ ] **Add Accessibility Enhancements**
+- [x] **Add Accessibility Enhancements**
   - **Priority:** MID | **Impact:** Screen reader & keyboard nav support
   - **Tasks:**
     - Add `aria-live="polite"` to overlay div
@@ -175,24 +175,24 @@
 ## 🎯 Refactoring Priority Order & Implementation Phases
 
 ### Phase 1: Bug Fixes (Blockers) — Must Complete First
-- [ ] Deduplicate `formatTime` 
-- [ ] Delete unused `VideoMetadata` type
-- [ ] Fix mobile `PointerEvent` typing in double-click handler
-- [ ] Add seek input debouncing/validation
-- [ ] Replace overlay re-render hack with `tick()` or transitions
+- [x] Deduplicate `formatTime` 
+- [x] Delete unused `VideoMetadata` type
+- [x] Fix mobile `PointerEvent` typing in double-click handler
+- [x] Add seek input debouncing/validation
+- [x] Replace overlay re-render hack with `tick()` or transitions
 
 ### Phase 2: Code Quality (Architecture) — Improves Maintainability
-- [ ] Extract magic numbers to `src/features/player/config.ts`
+- [x] Extract magic numbers to `src/features/player/config.ts`
 - [ ] Group related state into objects (`overlay`, `video`, `ui`, `timers`)
-- [ ] Create `clearAllTimers()` helper function
+- [x] Create `clearAllTimers()` helper function
 - [ ] Remove redundant `isMuted` state (use derived state)
 - [ ] Consolidate Tailwind classes to `.card` CSS class
 
 ### Phase 3: Accessibility (Compliance) — WCAG Violations
-- [ ] Add `aria-live="polite"` to overlay announcements
-- [ ] Add keyboard navigation to bookmark list (Tab, Arrow keys, Delete)
-- [ ] Add `aria-modal="true"` and focus trap to help dialog
-- [ ] Update seekbar input label dynamically during scrub
+- [x] Add `aria-live="polite"` to overlay announcements
+- [x] Add keyboard navigation to bookmark list (Tab, Arrow keys, Delete)
+- [x] Add `aria-modal="true"` and focus trap to help dialog
+- [x] Update seekbar input label dynamically during scrub
 
 ### Phase 4: Architecture Refactoring — Code Organization & Scalability
 - [ ] Extract UI components (PlaybackControls, SeekBar, BookmarkPanel, etc.)
@@ -229,8 +229,14 @@
 - **Accessibility (Phase 3):** 4 tasks
 - **Architecture Refactoring (Phase 4):** 9 tasks
 
-**Phases Completed:** 0/4
-**Tasks Completed:** 0/23
+**Phases Completed:** Phase 1 ✅ | Phase 2 partial (3/5) | Phase 3 ✅ | Phase 4 not started
+**Tasks Completed:** 12/23
 
 _Update task checkboxes above as work progresses
 Scope: Code refactoring & architecture improvements only (no new features)_
+
+### Completed in this session
+- Phase 1 (all 5 tasks): `formatTime` deduplication, `VideoMetadata` removal, mobile pointer event fix, seek debouncing via RAF, overlay re-render replaced with `tick()`
+- Phase 2 (partial): `config.ts` created with `PLAYBACK_CONFIG` constants, `clearAllTimers()` helper
+- Phase 3 (all 4 tasks): `aria-live`, `aria-modal`, seekbar `aria-label`, bookmark keyboard nav (ArrowUp/Down + Delete)
+- Bonus: Moved `Bookmark` interface to `src/shared/types/index.ts`; `isSeeking` changed from `$state` to plain variable

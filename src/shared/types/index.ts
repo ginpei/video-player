@@ -1,7 +1,4 @@
-export interface VideoMetadata {
-  title?: string
-  duration?: number
-  currentTime?: number
-  volume?: number
-  isPlaying?: boolean
+export interface Bookmark {
+  time: number
+  label: string
 }
