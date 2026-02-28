@@ -221,6 +221,10 @@
   function handleVideoPointerUp() {
     if (!videoEl) return
 
+    // Only process if pointer was actually down on the video
+    // (prevents seek bar from triggering play/pause)
+    if (!isPointerDownOnVideo && !isSwiping) return
+
     // Reset pointer down state
     isPointerDownOnVideo = false
 
