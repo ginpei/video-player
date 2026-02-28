@@ -9,3 +9,5 @@ export function formatTime(seconds: number): string {
   }
   return `${minutes}:${secs.toString().padStart(2, '0')}`
 }
+
+export { validateFile } from './validation'

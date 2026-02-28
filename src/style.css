@@ -16,3 +16,20 @@ body {
 * {
   box-sizing: border-box;
 }
+
+.card {
+  @apply rounded-2xl border border-slate-800 bg-slate-950/80;
+}
+
+.overlay-fade {
+  animation: overlay-fade 1s ease-out forwards;
+}
+
+@keyframes overlay-fade {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}

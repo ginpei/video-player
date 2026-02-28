@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onDestroy, tick } from 'svelte'
-  import { formatTime } from '../../shared/lib'
-  import type { Bookmark } from '../../shared/types'
+  import { formatTime, validateFile } from '../../shared/lib'
+  import type { Bookmark, OverlayState } from '../../shared/types'
   import { PLAYBACK_CONFIG } from './config'
+  import HelpDialog from './HelpDialog.svelte'
+  import BookmarkPanel from './BookmarkPanel.svelte'
 
   let videoUrl = $state('')
   let videoName = $state('')
@@ -13,9 +15,7 @@
   let duration = $state(0)
   let volume = $state(1)
   let isMuted = $state(false)
-  let showOverlay = $state(false)
-  let overlaySymbol = $state('')
-  let overlaySide = $state<'center' | 'left' | 'right'>('center')
+  let overlay = $state<OverlayState>({ show: false, symbol: '', side: 'center' })
   let overlayTimer: ReturnType<typeof setTimeout> | null = null
   let clickTimer: ReturnType<typeof setTimeout> | null = null
   let isHolding = $state(false)
@@ -53,6 +53,12 @@
   }
 
   function loadFile(file: File) {
+    const error = validateFile(file)
+    if (error) {
+      console.warn(error)
+      return
+    }
+
     if (objectUrl) {
       URL.revokeObjectURL(objectUrl)
     }
@@ -103,35 +109,35 @@
 
   async function showPlaybackOverlay() {
     if (!videoEl) return
-    showOverlay = false
-    overlaySymbol = videoEl.paused ? '⏸' : '▶'
-    overlaySide = 'center'
+    overlay.show = false
+    overlay.symbol = videoEl.paused ? '⏸' : '▶'
+    overlay.side = 'center'
 
     if (overlayTimer) {
       clearTimeout(overlayTimer)
     }
 
     await tick()
-    showOverlay = true
+    overlay.show = true
     overlayTimer = setTimeout(() => {
-      showOverlay = false
+      overlay.show = false
       overlayTimer = null
     }, PLAYBACK_CONFIG.OVERLAY_FADE_DURATION)
   }
 
   async function showSeekOverlay(symbol: string, side: 'left' | 'right') {
-    showOverlay = false
-    overlaySymbol = symbol
-    overlaySide = side
+    overlay.show = false
+    overlay.symbol = symbol
+    overlay.side = side
 
     if (overlayTimer) {
       clearTimeout(overlayTimer)
     }
 
     await tick()
-    showOverlay = true
+    overlay.show = true
     overlayTimer = setTimeout(() => {
-      showOverlay = false
+      overlay.show = false
       overlayTimer = null
     }, PLAYBACK_CONFIG.OVERLAY_FADE_DURATION)
   }
@@ -334,23 +340,6 @@
     bookmarks = bookmarks.filter((_, i) => i !== index)
   }
 
-  function handleBookmarkKeydown(event: KeyboardEvent, index: number) {
-    if (event.key === 'Delete') {
-      event.preventDefault()
-      deleteBookmark(index)
-    } else if (event.key === 'ArrowDown') {
-      event.preventDefault()
-      const parent = (event.currentTarget as HTMLElement).closest('[role="list"]')
-      const items = parent?.querySelectorAll<HTMLElement>('[role="listitem"] button:first-child')
-      items?.[index + 1]?.focus()
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault()
-      const parent = (event.currentTarget as HTMLElement).closest('[role="list"]')
-      const items = parent?.querySelectorAll<HTMLElement>('[role="listitem"] button:first-child')
-      items?.[index - 1]?.focus()
-    }
-  }
-
   function handleWindowDragOver(event: DragEvent) {
     event.preventDefault()
     isDragging = true
@@ -412,20 +401,20 @@
       <track kind="captions" />
     </video>
 
-    {#if showOverlay}
+    {#if overlay.show}
       <div class="pointer-events-none absolute inset-0" aria-live="polite" aria-atomic="true">
         <div
           class={
             `overlay-fade absolute inset-y-0 flex items-center justify-center bg-slate-950/40 text-4xl font-semibold text-slate-100 ${
-              overlaySide === 'left'
+              overlay.side === 'left'
                 ? 'left-0 w-1/3'
-                : overlaySide === 'right'
+                : overlay.side === 'right'
                   ? 'right-0 w-1/3'
                   : 'left-0 w-full'
             }`
           }
         >
-          {overlaySymbol}
+          {overlay.symbol}
         </div>
       </div>
     {/if}
@@ -453,7 +442,7 @@
   </div>
 
   <div class="mt-4 flex flex-col gap-3">
-    <div class="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3">
+    <div class="card flex flex-wrap items-center gap-3 px-4 py-3">
       <!-- Play button - After seekbar on mobile, before on desktop -->
       <button
         type="button"
@@ -528,50 +517,13 @@
       </div>
     </div>
 
-    <div class="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-semibold text-slate-200">
-          Bookmarks ({bookmarks.length})
-        </h3>
-        <button
-          type="button"
-          class="rounded-full bg-amber-400 px-4 py-1.5 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
-          onclick={addBookmark}
-          disabled={!videoUrl}
-          title="Bookmark current position"
-        >
-          🔖 Add
-        </button>
-      </div>
-      {#if bookmarks.length === 0}
-        <p class="text-sm text-slate-400">No bookmarks yet</p>
-      {:else}
-        <div class="space-y-2 max-h-48 overflow-y-auto" role="list">
-          {#each bookmarks as bookmark, index (index)}
-            <div class="flex items-center justify-between rounded-lg bg-slate-900/50 px-3 py-2" role="listitem">
-              <button
-                type="button"
-                class="flex-1 text-left text-sm text-slate-100 hover:text-amber-400 transition"
-                onclick={() => seekToBookmark(bookmark)}
-                onkeydown={(e) => handleBookmarkKeydown(e, index)}
-                title="Jump to bookmark"
-              >
-                <span class="font-mono">{formatTime(bookmark.time)}</span>
-                <span class="ml-2 text-slate-400">{bookmark.label}</span>
-              </button>
-              <button
-                type="button"
-                class="ml-2 text-xs text-slate-400 hover:text-red-400 transition"
-                onclick={() => deleteBookmark(index)}
-                title="Delete bookmark"
-              >
-                ✕
-              </button>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
+    <BookmarkPanel
+      {bookmarks}
+      {videoUrl}
+      onAdd={addBookmark}
+      onDelete={deleteBookmark}
+      onSeek={seekToBookmark}
+    />
 
     <div class="flex flex-wrap items-center gap-3">
     <button
@@ -605,58 +557,5 @@
   </div>
 </div>
 
-{#if showHelp}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
-    role="button"
-    tabindex="0"
-    onclick={() => (showHelp = false)}
-    onkeydown={(e) => e.key === 'Escape' && (showHelp = false)}
-  >
-    <div
-      class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-6 text-slate-100 shadow-2xl"
-      role="dialog"
-      aria-labelledby="help-title"
-      aria-modal="true"
-      tabindex="0"
-      onclick={(e) => e.stopPropagation()}
-      onkeydown={(e) => e.stopPropagation()}
-    >
-      <div class="flex items-center justify-between">
-        <h2 id="help-title" class="text-lg font-semibold">Keyboard shortcuts</h2>
-        <button
-          type="button"
-          class="text-sm font-semibold text-slate-300 hover:text-slate-100"
-          onclick={() => (showHelp = false)}
-        >
-          Close
-        </button>
-      </div>
-      <dl class="mt-4 grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 text-sm">
-        <dt class="font-semibold text-slate-200">Space</dt>
-        <dd class="text-slate-300">Play or pause</dd>
-        <dt class="font-semibold text-slate-200">Left</dt>
-        <dd class="text-slate-300">Seek back 5 seconds</dd>
-        <dt class="font-semibold text-slate-200">Right</dt>
-        <dd class="text-slate-300">Seek forward 5 seconds</dd>
-        <dt class="font-semibold text-slate-200">?</dt>
-        <dd class="text-slate-300">Toggle this list</dd>
-      </dl>
-    </div>
-  </div>
-{/if}
+<HelpDialog bind:open={showHelp} />
 
-<style>
-  .overlay-fade {
-    animation: overlay-fade 1s ease-out forwards;
-  }
-
-  @keyframes overlay-fade {
-    0% {
-      opacity: 1;
-    }
-    100% {
-      opacity: 0;
-    }
-  }
-</style>
