@@ -18,11 +18,7 @@
   let overlay = $state<OverlayState>({ show: false, symbol: '', side: 'center' })
   let overlayTimer: ReturnType<typeof setTimeout> | null = null
   let clickTimer: ReturnType<typeof setTimeout> | null = null
-  let isHolding = $state(false)
-  let holdTimer: ReturnType<typeof setTimeout> | null = null
-  let pointerDownTime = 0
   let lastPointerX = 0
-  let originalPlaybackRate = $state(1)
   let wasPlayingBeforeSeeking = false
   let seekRafId: number | null = null
 
@@ -40,10 +36,6 @@
     if (overlayTimer) {
       clearTimeout(overlayTimer)
       overlayTimer = null
-    }
-    if (holdTimer) {
-      clearTimeout(holdTimer)
-      holdTimer = null
     }
     if (seekRafId !== null) {
       cancelAnimationFrame(seekRafId)
@@ -142,71 +134,34 @@
   }
 
   function handleVideoPointerDown(event: PointerEvent) {
-    if (event.button !== 0 || !videoEl) return
+    if (event.button !== 0) return
     lastPointerX = event.clientX
-    pointerDownTime = Date.now()
-    holdTimer = setTimeout(() => {
-      if (!videoEl) return
-      isHolding = true
-      originalPlaybackRate = videoEl.playbackRate
-      videoEl.playbackRate = PLAYBACK_CONFIG.FAST_PLAYBACK_RATE
-      holdTimer = null
-    }, PLAYBACK_CONFIG.HOLD_TO_2X_THRESHOLD)
   }
 
   function handleVideoPointerUp() {
-    const pressDuration = Date.now() - pointerDownTime
+    if (!videoEl) return
 
-    if (holdTimer) {
-      clearTimeout(holdTimer)
-      holdTimer = null
-    }
-
-    if (isHolding) {
-      // Was holding for 2x speed, just restore speed
-      isHolding = false
-      if (videoEl) {
-        videoEl.playbackRate = originalPlaybackRate
+    if (clickTimer) {
+      // Second click within window - it's a double click, cancel single click
+      clearTimeout(clickTimer)
+      clickTimer = null
+      // Handle double-tap seek based on pointer position
+      const rect = videoEl.getBoundingClientRect()
+      const offsetX = lastPointerX - rect.left
+      const isLeftSide = offsetX < rect.width * PLAYBACK_CONFIG.LEFT_ZONE_RATIO
+      const isRightSide = offsetX > rect.width * PLAYBACK_CONFIG.RIGHT_ZONE_RATIO
+      if (isLeftSide || isRightSide) {
+        seekBy(isLeftSide ? -PLAYBACK_CONFIG.SEEK_AMOUNT : PLAYBACK_CONFIG.SEEK_AMOUNT)
+        void showSeekOverlay(isLeftSide ? '⏮' : '⏭', isLeftSide ? 'left' : 'right')
       }
-      return
-    }
-
-    // Quick press, treat as potential click
-    if (pressDuration < PLAYBACK_CONFIG.HOLD_TO_2X_THRESHOLD) {
-      if (clickTimer) {
-        // Second click within window - it's a double click, cancel single click
-        clearTimeout(clickTimer)
+    } else {
+      // First click, wait to see if there's a double click
+      clickTimer = setTimeout(() => {
+        togglePlay()
+        void showPlaybackOverlay()
         clickTimer = null
-        // Handle double-tap seek based on pointer position
-        if (videoEl) {
-          const rect = videoEl.getBoundingClientRect()
-          const offsetX = lastPointerX - rect.left
-          const isLeftSide = offsetX < rect.width * PLAYBACK_CONFIG.LEFT_ZONE_RATIO
-          const isRightSide = offsetX > rect.width * PLAYBACK_CONFIG.RIGHT_ZONE_RATIO
-          if (isLeftSide || isRightSide) {
-            seekBy(isLeftSide ? -PLAYBACK_CONFIG.SEEK_AMOUNT : PLAYBACK_CONFIG.SEEK_AMOUNT)
-            void showSeekOverlay(isLeftSide ? '⏮' : '⏭', isLeftSide ? 'left' : 'right')
-          }
-        }
-      } else {
-        // First click, wait to see if there's a double click
-        clickTimer = setTimeout(() => {
-          togglePlay()
-          void showPlaybackOverlay()
-          clickTimer = null
-        }, PLAYBACK_CONFIG.CLICK_DETECTION_WINDOW)
-      }
+      }, PLAYBACK_CONFIG.CLICK_DETECTION_WINDOW)
     }
-  }
-
-  function handleVideoPointerLeave() {
-    if (holdTimer) {
-      clearTimeout(holdTimer)
-      holdTimer = null
-    }
-    if (!isHolding || !videoEl) return
-    isHolding = false
-    videoEl.playbackRate = originalPlaybackRate
   }
 
   function toggleMute() {
@@ -367,6 +322,7 @@
   ondragover={handleWindowDragOver}
   ondragleave={handleWindowDragLeave}
   ondrop={handleWindowDrop}
+  onpointerup={handleVideoPointerUp}
 />
 
 <div class="w-full max-w-5xl mx-auto">
@@ -392,8 +348,6 @@
       onpause={handlePause}
       onvolumechange={handleVolumeChange}
       onpointerdown={handleVideoPointerDown}
-      onpointerup={handleVideoPointerUp}
-      onpointerleave={handleVideoPointerLeave}
     >
       <track kind="captions" />
     </video>
