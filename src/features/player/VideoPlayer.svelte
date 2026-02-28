@@ -15,12 +15,19 @@
   let duration = $state(0)
   let volume = $state(1)
   let isMuted = $state(false)
-  let overlay = $state<OverlayState>({ show: false, symbol: '', side: 'center' })
+  let overlay = $state<OverlayState>({ show: false, symbol: '', side: 'center', fade: false })
   let overlayTimer: ReturnType<typeof setTimeout> | null = null
   let clickTimer: ReturnType<typeof setTimeout> | null = null
   let lastPointerX = 0
   let wasPlayingBeforeSeeking = false
   let seekRafId: number | null = null
+
+  // Swipe state
+  let isSwiping = $state(false)
+  let isPointerDownOnVideo = false
+  let swipeStartX = 0
+  let swipeStartTime = 0
+  let swipeCurrentX = 0
 
   let bookmarks = $state<Bookmark[]>([])
 
@@ -103,6 +110,7 @@
     overlay.show = false
     overlay.symbol = videoEl.paused ? '⏸' : '▶'
     overlay.side = 'center'
+    overlay.fade = true
 
     if (overlayTimer) {
       clearTimeout(overlayTimer)
@@ -120,6 +128,7 @@
     overlay.show = false
     overlay.symbol = symbol
     overlay.side = side
+    overlay.fade = true
 
     if (overlayTimer) {
       clearTimeout(overlayTimer)
@@ -133,13 +142,95 @@
     }, PLAYBACK_CONFIG.OVERLAY_FADE_DURATION)
   }
 
+  function updateSwipeOverlay(offsetSeconds: number) {
+    // Just update the overlay text, don't toggle visibility
+    const rounded = Number(offsetSeconds.toFixed(1))
+    const sign = rounded > 0 ? '+' : rounded < 0 ? '-' : ''
+    overlay.symbol = `${sign}${Math.abs(rounded).toFixed(1)}s`
+    overlay.side = 'center'
+  }
+
+  function showSeekingOverlay() {
+    // Show overlay when entering seeking mode (no fade animation)
+    overlay.fade = false
+    overlay.show = true
+  }
+
+  function hideSeekingOverlay() {
+    // Hide overlay when exiting seeking mode
+    overlay.show = false
+  }
+
   function handleVideoPointerDown(event: PointerEvent) {
     if (event.button !== 0) return
+    if (!videoEl) return
     lastPointerX = event.clientX
+    
+    // Initialize swipe state
+    isPointerDownOnVideo = true
+    swipeStartX = event.clientX
+    swipeCurrentX = event.clientX
+    swipeStartTime = videoEl.currentTime
+    isSwiping = false
+    
+    // Capture pointer to receive all move events (important for touch)
+    const target = event.currentTarget as HTMLElement
+    target.setPointerCapture(event.pointerId)
+  }
+
+  function handleVideoPointerMove(event: PointerEvent) {
+    if (!videoEl) return
+    
+    // Only process if pointer is actually down on the video
+    if (!isPointerDownOnVideo) return
+    
+    // Only allow swipe when video is paused
+    if (!videoEl.paused) return
+    
+    swipeCurrentX = event.clientX
+    const rawDistance = swipeCurrentX - swipeStartX
+    const absDistance = Math.abs(rawDistance)
+    
+    // Enter seeking mode if moved beyond detection threshold
+    if (!isSwiping && absDistance > PLAYBACK_CONFIG.SWIPE_DETECTION_THRESHOLD) {
+      isSwiping = true
+      // Cancel any pending click timer when swipe is detected
+      if (clickTimer) {
+        clearTimeout(clickTimer)
+        clickTimer = null
+      }
+      // Show overlay when entering seeking mode
+      showSeekingOverlay()
+    }
+    
+    // Once in seeking mode, continue updating regardless of distance
+    if (isSwiping) {
+      // Calculate offset directly from raw distance (no threshold subtraction)
+      const swipeOffset = rawDistance * PLAYBACK_CONFIG.SWIPE_SENSITIVITY
+      const targetTime = swipeStartTime + swipeOffset
+      
+      // Clamp to valid range
+      const dur = Number.isFinite(videoEl.duration) ? videoEl.duration : Infinity
+      videoEl.currentTime = Math.min(Math.max(0, targetTime), dur)
+      
+      // Update overlay text during seeking
+      updateSwipeOverlay(swipeOffset)
+    }
   }
 
   function handleVideoPointerUp() {
     if (!videoEl) return
+
+    // Reset pointer down state
+    isPointerDownOnVideo = false
+
+    // If it was a swipe, exit seeking mode and hide overlay
+    if (isSwiping) {
+      isSwiping = false
+      // Hide overlay immediately when releasing pointer
+      hideSeekingOverlay()
+      return
+    }
 
     if (clickTimer) {
       // Second click within window - it's a double click, cancel single click
@@ -161,6 +252,19 @@
         void showPlaybackOverlay()
         clickTimer = null
       }, PLAYBACK_CONFIG.CLICK_DETECTION_WINDOW)
+    }
+  }
+
+  function handleVideoPointerCancel() {
+    // Reset state if pointer interaction is cancelled
+    isPointerDownOnVideo = false
+    if (isSwiping) {
+      isSwiping = false
+      hideSeekingOverlay()
+    }
+    if (clickTimer) {
+      clearTimeout(clickTimer)
+      clickTimer = null
     }
   }
 
@@ -341,6 +445,7 @@
     <video
       bind:this={videoEl}
       class="w-full aspect-video bg-black max-h-[calc(100vh-32px)] "
+      style="touch-action: none;"
       src={videoUrl}
       onloadedmetadata={handleLoadedMetadata}
       ontimeupdate={handleTimeUpdate}
@@ -348,6 +453,8 @@
       onpause={handlePause}
       onvolumechange={handleVolumeChange}
       onpointerdown={handleVideoPointerDown}
+      onpointermove={handleVideoPointerMove}
+      onpointercancel={handleVideoPointerCancel}
     >
       <track kind="captions" />
     </video>
@@ -356,7 +463,9 @@
       <div class="pointer-events-none absolute inset-0" aria-live="polite" aria-atomic="true">
         <div
           class={
-            `overlay-fade absolute inset-y-0 flex items-center justify-center bg-slate-950/40 text-4xl font-semibold text-slate-100 ${
+            `absolute inset-y-0 flex items-center justify-center bg-slate-950/40 text-4xl font-semibold text-slate-100 tabular-nums ${
+              overlay.fade ? 'overlay-fade' : ''
+            } ${
               overlay.side === 'left'
                 ? 'left-0 w-1/3'
                 : overlay.side === 'right'

@@ -39,6 +39,16 @@
         <dt class="font-semibold text-slate-200">?</dt>
         <dd class="text-slate-300">Toggle this list</dd>
       </dl>
+      
+      <h3 class="mt-6 text-lg font-semibold">Mouse & touch gestures</h3>
+      <dl class="mt-4 grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 text-sm">
+        <dt class="font-semibold text-slate-200">Click</dt>
+        <dd class="text-slate-300">Play or pause</dd>
+        <dt class="font-semibold text-slate-200">Double-click</dt>
+        <dd class="text-slate-300">Seek (left/right zones)</dd>
+        <dt class="font-semibold text-slate-200">Swipe</dt>
+        <dd class="text-slate-300">Seek by distance (paused only)</dd>
+      </dl>
     </div>
   </div>
 {/if}
