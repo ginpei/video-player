@@ -23,7 +23,6 @@
   let pointerDownTime = 0
   let lastPointerX = 0
   let originalPlaybackRate = $state(1)
-  let isSeeking = false
   let wasPlayingBeforeSeeking = false
   let seekRafId: number | null = null
 
@@ -296,14 +295,12 @@
 
   function handleSeekPointerDown() {
     if (!videoEl) return
-    isSeeking = true
     wasPlayingBeforeSeeking = isPlaying
     videoEl.pause()
   }
 
   function handleSeekPointerUp() {
     if (!videoEl) return
-    isSeeking = false
     if (wasPlayingBeforeSeeking) {
       void videoEl.play()
     }
