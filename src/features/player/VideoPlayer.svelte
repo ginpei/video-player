@@ -154,6 +154,16 @@
     overlay.side = 'center'
   }
 
+  function calculateSwipeOffset(distance: number): number {
+    // Apply gradient sensitivity: short distances = fine control, long distances = coarse control
+    // Formula: offset = baseSensitivity * distance + acceleration * distance^2
+    const absDistance = Math.abs(distance)
+    const sign = Math.sign(distance)
+    const baseOffset = PLAYBACK_CONFIG.SWIPE_BASE_SENSITIVITY * absDistance
+    const acceleratedOffset = PLAYBACK_CONFIG.SWIPE_ACCELERATION * absDistance * absDistance
+    return sign * (baseOffset + acceleratedOffset)
+  }
+
   function showSeekingOverlay() {
     // Show overlay when entering seeking mode (no fade animation)
     overlay.fade = false
@@ -221,8 +231,8 @@
     
     // Once in seeking mode, continue updating regardless of distance
     if (isSwiping) {
-      // Calculate offset directly from raw distance (no threshold subtraction)
-      const swipeOffset = horizontalDistance * PLAYBACK_CONFIG.SWIPE_SENSITIVITY
+      // Calculate offset with gradient sensitivity
+      const swipeOffset = calculateSwipeOffset(horizontalDistance)
       const targetTime = swipeStartTime + swipeOffset
       
       // Clamp to valid range
