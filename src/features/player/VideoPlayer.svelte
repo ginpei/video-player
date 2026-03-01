@@ -13,8 +13,6 @@
   let isPlaying = $state(false)
   let currentTime = $state(0)
   let duration = $state(0)
-  let volume = $state(1)
-  let isMuted = $state(false)
   let overlay = $state<OverlayState>({ show: false, symbol: '', side: 'center', fade: false })
   let overlayTimer: ReturnType<typeof setTimeout> | null = null
   let clickTimer: ReturnType<typeof setTimeout> | null = null
@@ -302,12 +300,6 @@
     }
   }
 
-  function toggleMute() {
-    if (!videoEl) return
-    videoEl.muted = !videoEl.muted
-  }
-
-
   function seekBy(seconds: number) {
     if (!videoEl) return
     const dur = Number.isFinite(videoEl.duration) ? videoEl.duration : Infinity
@@ -366,12 +358,6 @@
     isPlaying = false
   }
 
-  function handleVolumeChange(event: Event) {
-    const el = event.currentTarget as HTMLVideoElement
-    volume = el.volume
-    isMuted = el.muted
-  }
-
   function handleSeekInput(event: Event) {
     if (!videoEl) return
     const input = event.currentTarget as HTMLInputElement
@@ -396,17 +382,6 @@
     if (!videoEl) return
     if (wasPlayingBeforeSeeking) {
       void videoEl.play()
-    }
-  }
-
-  function handleVolumeInput(event: Event) {
-    if (!videoEl) return
-    const input = event.currentTarget as HTMLInputElement
-    videoEl.volume = Number(input.value)
-    if (videoEl.volume === 0) {
-      videoEl.muted = true
-    } else if (videoEl.muted) {
-      videoEl.muted = false
     }
   }
 
@@ -485,7 +460,6 @@
       ontimeupdate={handleTimeUpdate}
       onplay={handlePlay}
       onpause={handlePause}
-      onvolumechange={handleVolumeChange}
       onpointerdown={handleVideoPointerDown}
       onpointermove={handleVideoPointerMove}
       onpointercancel={handleVideoPointerCancel}
@@ -591,30 +565,6 @@
       <span class="order-3 tabular-nums text-sm text-slate-200">{formatTime(currentTime)}</span>
       <span class="order-3 text-sm text-slate-400">/</span>
       <span class="order-3 tabular-nums text-sm text-slate-200">{formatTime(duration)}</span>
-      
-      <!-- Volume controls - New line on mobile, same line on desktop -->
-      <div class="order-4 flex w-full sm:w-auto items-center gap-3">
-        <button
-          type="button"
-          class="rounded-full border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
-          onclick={toggleMute}
-          disabled={!videoUrl}
-          aria-label={isMuted || volume === 0 ? 'Unmute' : 'Mute'}
-          title={isMuted || volume === 0 ? 'Unmute' : 'Mute'}
-        >
-          {isMuted || volume === 0 ? '🔇' : '🔊'}
-        </button>
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          value={isMuted ? 0 : volume}
-          class="h-1 w-28 cursor-pointer appearance-none rounded-full bg-slate-700"
-          oninput={handleVolumeInput}
-          disabled={!videoUrl}
-        />
-      </div>
     </div>
 
     <BookmarkPanel
