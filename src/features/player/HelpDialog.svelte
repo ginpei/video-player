@@ -11,7 +11,7 @@
     onkeydown={(e) => e.key === 'Escape' && (open = false)}
   >
     <div
-      class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-6 text-slate-100 shadow-2xl"
+      class="w-full max-w-md rounded border border-slate-700 bg-slate-950 p-6 text-slate-100 shadow-2xl"
       role="dialog"
       aria-labelledby="help-title"
       aria-modal="true"

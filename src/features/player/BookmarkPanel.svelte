@@ -37,7 +37,7 @@
     </h3>
     <button
       type="button"
-      class="rounded-full bg-amber-400 px-4 py-1.5 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+      class="rounded bg-amber-400 px-4 py-1.5 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
       onclick={onAdd}
       disabled={!videoUrl}
       title="Bookmark current position"
@@ -50,7 +50,7 @@
   {:else}
     <div class="space-y-2 max-h-48 overflow-y-auto" role="list">
       {#each bookmarks as bookmark, index (index)}
-        <div class="flex items-center justify-between rounded-lg bg-slate-900/50 px-3 py-2" role="listitem">
+        <div class="flex items-center justify-between rounded bg-slate-900/50 px-3 py-2" role="listitem">
           <button
             type="button"
             class="flex-1 text-left text-sm text-slate-100 hover:text-amber-400 transition"

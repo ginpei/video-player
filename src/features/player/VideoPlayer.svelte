@@ -438,10 +438,10 @@
   onpointerup={handleVideoPointerUp}
 />
 
-<div class="w-full max-w-5xl mx-auto">
+<div class="VideoPlayer w-full mx-auto mb-32">
   <div
     class={
-      `relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/80 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.9)] ${
+      `relative overflow-hidden rounded border border-slate-800 bg-slate-950/80 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.9)] ${
         isDragging ? 'ring-4 ring-amber-400/70 border-amber-300/60' : ''
       }`
     }
@@ -453,7 +453,7 @@
   >
     <video
       bind:this={videoEl}
-      class="w-full aspect-video bg-black max-h-[calc(100vh-32px)] "
+      class="w-full aspect-video bg-black max-h-[calc(100vh-calc(var(--spacing)*11)-32px)]"
       style="touch-action: pan-y;"
       src={videoUrl}
       onloadedmetadata={handleLoadedMetadata}
@@ -520,7 +520,7 @@
       <!-- Play button - After seekbar on mobile, before on desktop -->
       <button
         type="button"
-        class="order-2 sm:order-1 rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+        class="order-2 sm:order-1 rounded bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
         onclick={togglePlay}
         disabled={!videoUrl}
         aria-label={isPlaying ? 'Pause' : 'Play'}
@@ -552,7 +552,7 @@
             step="0.1"
             value={currentTime}
             aria-label={`Seek – ${formatTime(currentTime)} of ${formatTime(duration)}`}
-            class="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-700 relative z-10"
+            class="h-1 w-full cursor-pointer appearance-none bg-slate-700 relative z-10"
             oninput={handleSeekInput}
             onpointerdown={handleSeekPointerDown}
             onpointerup={handleSeekPointerUp}
@@ -575,10 +575,10 @@
       onSeek={seekToBookmark}
     />
 
-    <div class="flex flex-wrap items-center gap-3">
+    <div class="flex flex-wrap items-center gap-3 px-4">
     <button
       type="button"
-      class="rounded-full bg-amber-400 px-5 py-2 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5"
+      class="rounded bg-amber-400 px-5 py-2 text-sm font-semibold text-slate-950 shadow-sm shadow-amber-300/30 transition hover:-translate-y-0.5"
       onclick={() => fileInput?.click()}
     >
       Select video
@@ -592,7 +592,7 @@
     />
     <button
       type="button"
-      class="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500"
+      class="rounded border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500"
       onclick={() => (showHelp = !showHelp)}
     >
       Shortcuts (?)
