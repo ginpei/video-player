@@ -26,8 +26,12 @@
   let isSwiping = $state(false)
   let isPointerDownOnVideo = false
   let swipeStartX = 0
+  let swipeStartY = 0
   let swipeStartTime = 0
   let swipeCurrentX = 0
+  let swipeCurrentY = 0
+  let swipePointerId: number | null = null
+  let swipeTargetEl: HTMLElement | null = null
 
   let bookmarks = $state<Bookmark[]>([])
 
@@ -169,13 +173,15 @@
     // Initialize swipe state
     isPointerDownOnVideo = true
     swipeStartX = event.clientX
+    swipeStartY = event.clientY
     swipeCurrentX = event.clientX
+    swipeCurrentY = event.clientY
     swipeStartTime = videoEl.currentTime
     isSwiping = false
     
-    // Capture pointer to receive all move events (important for touch)
-    const target = event.currentTarget as HTMLElement
-    target.setPointerCapture(event.pointerId)
+    // Store pointer info for later capture (only capture when we detect horizontal swipe)
+    swipePointerId = event.pointerId
+    swipeTargetEl = event.currentTarget as HTMLElement
   }
 
   function handleVideoPointerMove(event: PointerEvent) {
@@ -188,25 +194,35 @@
     if (!videoEl.paused) return
     
     swipeCurrentX = event.clientX
-    const rawDistance = swipeCurrentX - swipeStartX
-    const absDistance = Math.abs(rawDistance)
+    swipeCurrentY = event.clientY
+    const horizontalDistance = swipeCurrentX - swipeStartX
+    const verticalDistance = swipeCurrentY - swipeStartY
+    const absHorizontal = Math.abs(horizontalDistance)
+    const absVertical = Math.abs(verticalDistance)
     
-    // Enter seeking mode if moved beyond detection threshold
-    if (!isSwiping && absDistance > PLAYBACK_CONFIG.SWIPE_DETECTION_THRESHOLD) {
-      isSwiping = true
-      // Cancel any pending click timer when swipe is detected
-      if (clickTimer) {
-        clearTimeout(clickTimer)
-        clickTimer = null
+    // Enter seeking mode if moved beyond threshold AND movement is more horizontal than vertical
+    if (!isSwiping && absHorizontal > PLAYBACK_CONFIG.SWIPE_DETECTION_THRESHOLD) {
+      // Only activate if swipe is more horizontal than vertical
+      if (absHorizontal > absVertical) {
+        isSwiping = true
+        // Cancel any pending click timer when swipe is detected
+        if (clickTimer) {
+          clearTimeout(clickTimer)
+          clickTimer = null
+        }
+        // Capture pointer now that we confirmed horizontal swipe
+        if (swipePointerId !== null && swipeTargetEl) {
+          swipeTargetEl.setPointerCapture(swipePointerId)
+        }
+        // Show overlay when entering seeking mode
+        showSeekingOverlay()
       }
-      // Show overlay when entering seeking mode
-      showSeekingOverlay()
     }
     
     // Once in seeking mode, continue updating regardless of distance
     if (isSwiping) {
       // Calculate offset directly from raw distance (no threshold subtraction)
-      const swipeOffset = rawDistance * PLAYBACK_CONFIG.SWIPE_SENSITIVITY
+      const swipeOffset = horizontalDistance * PLAYBACK_CONFIG.SWIPE_SENSITIVITY
       const targetTime = swipeStartTime + swipeOffset
       
       // Clamp to valid range
@@ -227,6 +243,8 @@
 
     // Reset pointer down state
     isPointerDownOnVideo = false
+    swipePointerId = null
+    swipeTargetEl = null
 
     // If it was a swipe, exit seeking mode and hide overlay
     if (isSwiping) {
@@ -262,6 +280,8 @@
   function handleVideoPointerCancel() {
     // Reset state if pointer interaction is cancelled
     isPointerDownOnVideo = false
+    swipePointerId = null
+    swipeTargetEl = null
     if (isSwiping) {
       isSwiping = false
       hideSeekingOverlay()
@@ -449,7 +469,7 @@
     <video
       bind:this={videoEl}
       class="w-full aspect-video bg-black max-h-[calc(100vh-32px)] "
-      style="touch-action: none;"
+      style="touch-action: pan-y;"
       src={videoUrl}
       onloadedmetadata={handleLoadedMetadata}
       ontimeupdate={handleTimeUpdate}
