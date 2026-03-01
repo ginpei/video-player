@@ -1,31 +1,39 @@
 <script lang="ts">
-  import { formatTime } from '../../shared/lib'
-  import type { Bookmark } from '../../shared/types'
+  import { formatTime } from "../../shared/lib";
+  import type { Bookmark } from "../../shared/types";
 
   interface Props {
-    bookmarks: Bookmark[]
-    videoUrl: string
-    onAdd: () => void
-    onDelete: (index: number) => void
-    onSeek: (bookmark: Bookmark) => void
+    bookmarks: Bookmark[];
+    videoUrl: string;
+    onAdd: () => void;
+    onDelete: (index: number) => void;
+    onSeek: (bookmark: Bookmark) => void;
   }
 
-  let { bookmarks, videoUrl, onAdd, onDelete, onSeek }: Props = $props()
+  let { bookmarks, videoUrl, onAdd, onDelete, onSeek }: Props = $props();
 
   function handleKeydown(event: KeyboardEvent, index: number) {
-    if (event.key === 'Delete') {
-      event.preventDefault()
-      onDelete(index)
-    } else if (event.key === 'ArrowDown') {
-      event.preventDefault()
-      const parent = (event.currentTarget as HTMLElement).closest('[role="list"]')
-      const items = parent?.querySelectorAll<HTMLElement>('[role="listitem"] button:first-child')
-      items?.[index + 1]?.focus()
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault()
-      const parent = (event.currentTarget as HTMLElement).closest('[role="list"]')
-      const items = parent?.querySelectorAll<HTMLElement>('[role="listitem"] button:first-child')
-      items?.[index - 1]?.focus()
+    if (event.key === "Delete") {
+      event.preventDefault();
+      onDelete(index);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      const parent = (event.currentTarget as HTMLElement).closest(
+        '[role="list"]',
+      );
+      const items = parent?.querySelectorAll<HTMLElement>(
+        '[role="listitem"] button:first-child',
+      );
+      items?.[index + 1]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      const parent = (event.currentTarget as HTMLElement).closest(
+        '[role="list"]',
+      );
+      const items = parent?.querySelectorAll<HTMLElement>(
+        '[role="listitem"] button:first-child',
+      );
+      items?.[index - 1]?.focus();
     }
   }
 </script>
@@ -50,7 +58,10 @@
   {:else}
     <div class="space-y-2 max-h-48 overflow-y-auto" role="list">
       {#each bookmarks as bookmark, index (index)}
-        <div class="flex items-center justify-between rounded bg-slate-900/50 px-3 py-2" role="listitem">
+        <div
+          class="flex items-center justify-between rounded bg-slate-900/50 px-3 py-2"
+          role="listitem"
+        >
           <button
             type="button"
             class="flex-1 text-left text-sm text-slate-100 hover:text-amber-400 transition"
