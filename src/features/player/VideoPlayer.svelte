@@ -484,13 +484,19 @@
     {/if}
 
     {#if !videoUrl}
-      <div class="absolute inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur">
+      <div
+        class="absolute inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur cursor-pointer hover:bg-slate-950/70 transition"
+        role="button"
+        tabindex="0"
+        onclick={() => fileInput?.click()}
+        onkeydown={(e) => e.key === 'Enter' && fileInput?.click()}
+      >
         <div class="text-center px-6">
           <p class="text-lg font-semibold text-slate-100">
             Drop a local video file
           </p>
           <p class="mt-2 text-sm text-slate-300">
-            Or use the select button below to choose one
+            Or click here to choose one
           </p>
         </div>
       </div>
